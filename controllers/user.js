@@ -7,7 +7,7 @@ exports.GET = (req, res, next) => {};
 exports.CREATE = (req, res, next) => {
   const inputFile = req.file;
   const inputPath = inputFile.path;
-  const outputFolder = "./images/";
+  const outputFolder = "./tmp/";
 
   if (!fs.existsSync(outputFolder)) {
     fs.mkdirSync(outputFolder);
