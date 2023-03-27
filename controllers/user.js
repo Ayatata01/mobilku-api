@@ -9,17 +9,30 @@ exports.CREATE = (req, res, next) => {
   const inputPath = inputFile.path;
   const outputFolder = "./tmp/";
 
+  // Membuat direktori temporary jika belum ada
   if (!fs.existsSync(outputFolder)) {
     fs.mkdirSync(outputFolder);
   }
 
+  // Menggunakan sharp untuk memproses gambar dan menyimpan file sementara pada direktori temporary
   const promises = [
-    sharp.processImage(inputPath, outputFolder + "image_500.jpg", 500),
-    sharp.processImage(inputPath, outputFolder + "image_1000.jpg", 1000),
+    sharp.processImage(
+      inputPath,
+      `${outputFolder}${inputFile.originalname}_500.jpg`,
+      500
+    ),
+    sharp.processImage(
+      inputPath,
+      `${outputFolder}${inputFile.originalname}_1000.jpg`,
+      1000
+    ),
   ];
 
   Promise.all(promises)
     .then((result) => {
+      // Menghapus file sementara setelah proses selesai
+      fs.unlinkSync(inputPath);
+
       const Data = new User({
         nama: req.body.nama,
         tanggal: req.body.tanggal,
@@ -33,6 +46,13 @@ exports.CREATE = (req, res, next) => {
 
       Data.save()
         .then((response) => {
+          // Membersihkan file-file sementara yang tidak diperlukan setelah proses selesai
+          fs.readdirSync(outputFolder).forEach((file) => {
+            const filePath = `${outputFolder}/${file}`;
+            fs.unlinkSync(filePath);
+          });
+
+          // Mengirimkan respon kepada client
           res.status(201).json({
             response,
           });
