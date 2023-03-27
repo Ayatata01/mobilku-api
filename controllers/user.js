@@ -1,61 +1,42 @@
 const User = require("../models/user");
 const sharp = require("../helper/processImage");
+const tmp = require("tmp");
 const fs = require("fs");
 
 exports.GET = (req, res, next) => {};
-
 exports.CREATE = (req, res, next) => {
   const inputFile = req.file;
   const inputPath = inputFile.path;
-  const outputFolder = "./tmp/";
+  const outputFolder = tmp.dirSync().name; // Menggunakan modul tmp untuk membuat direktori temporary
 
-  // Membuat direktori temporary jika belum ada
-  if (!fs.existsSync(outputFolder)) {
-    fs.mkdirSync(outputFolder);
-  }
-
-  // Menggunakan sharp untuk memproses gambar dan menyimpan file sementara pada direktori temporary
   const promises = [
-    sharp.processImage(
-      inputPath,
-      `${outputFolder}${inputFile.originalname}_500.jpg`,
-      500
-    ),
-    sharp.processImage(
-      inputPath,
-      `${outputFolder}${inputFile.originalname}_1000.jpg`,
-      1000
-    ),
+    sharp(inputPath)
+      .resize(500)
+      .toFile(path.join(outputFolder, "image_500.jpg")),
+    sharp(inputPath)
+      .resize(1000)
+      .toFile(path.join(outputFolder, "image_1000.jpg")),
   ];
 
   Promise.all(promises)
     .then((result) => {
-      // Menghapus file sementara setelah proses selesai
-      fs.unlinkSync(inputPath);
-
-      const Data = new User({
+      const data = new User({
         nama: req.body.nama,
         tanggal: req.body.tanggal,
         usia: parseFloat(req.body.usia),
         mobile: req.body.mobile,
         city: req.body.city,
         education: req.body.education,
-        image_500px: result[0],
-        image_100px: result[1],
+        image_500px: fs.readFileSync(path.join(outputFolder, "image_500.jpg")),
+        image_100px: fs.readFileSync(path.join(outputFolder, "image_1000.jpg")),
       });
 
-      Data.save()
+      data
+        .save()
         .then((response) => {
-          // Membersihkan file-file sementara yang tidak diperlukan setelah proses selesai
-          fs.readdirSync(outputFolder).forEach((file) => {
-            const filePath = `${outputFolder}/${file}`;
-            fs.unlinkSync(filePath);
-          });
-
-          // Mengirimkan respon kepada client
-          res.status(201).json({
-            response,
-          });
+          // Membersihkan direktori temporary setelah proses selesai
+          fs.rmdirSync(outputFolder, { recursive: true });
+          res.status(201).json({ response });
         })
         .catch((error) => res.json({ error }));
     })
